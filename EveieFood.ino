@@ -1,4 +1,4 @@
-// Version 1.4.0 7/26/2020
+// Version 1.5.0 11/12/2020
 //---------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <SPI.h>
 #include <SD.h>
@@ -80,7 +80,7 @@ uint8_t setday;
 uint8_t sethour;
 uint8_t setminute;
 uint8_t setsecond;
-uint8_t setScoopsPerFeed;
+uint8_t setCyclesToSkip;
 uint8_t logChoice;
 
 uint8_t hourtimer1 = 8;
@@ -93,10 +93,14 @@ uint8_t hourtimer3 = 14;
 uint8_t minutetimer3 = 0;
 bool timer3 = false;
 uint8_t feedTimerOn = 0;
-uint8_t scoopsPerFeed = 4;
+uint8_t setCyclesToSkip = 0;
+
+//RECOMMENDED 1/7 SCOOP PER DAY PER POUND OF DOG (ex: dog is 28 pounds, give him 1 scoop breakfast, 1 scoop lunch, 2 scoop dinner). Changeable in UI
+uint8_t scoopsPerFeed1 = 1;
+uint8_t scoopsPerFeed2 = 1;
+uint8_t scoopsPerFeed3 = 1;
 unsigned long int lastTimerFeed = 0; //a millisecond log like lastWake
 bool coolDown = 1; // a variable to say if the timer has NOT fed in the last TIMERCOOLDOWNMS, in other words if it is ready to feed again. To avoid repeat-feeding timers.
-
 
 void setup() {
   Serial.begin(9600);
@@ -226,20 +230,23 @@ void loop() {
   }
 
   if (menuLocation == 2) { //Header for option for changing amount of gate releases when it's feeding time, for the changing interface, goto menulocation==17
-    lcd.print("Scoops per Feed");
+    lcd.print("NextCyclesToSkip");
     if (readRising(&currentSelect, &lastSelect)) {
       menuLocation = 17;
-      //fillButtonVars();
       resetLCD();
       wake();
       smallBeep(beepNote);
-      setScoopsPerFeed = scoopsPerFeed;
+      setCyclesToSkip = cyclesToSkip;
       return;
     }
   }
 
   if (menuLocation == 3) { //header for option for feeding time #1, for the changing interface, goto menuLocation==18
-    lcd.print("Feeding Time 1");
+    lcd.print("Feed 1");
+    uint8_t scoopDigits = scoopsPerFeed1 < 10 ? 1 : (scoopsPerFeed1 < 100 ? 2 : 3);
+    lcd.setCursor(16 - 1 - scoopDigits, 0);
+    lcd.print("x");
+    lcd.print(scoopsPerFeed);
     lcd.setCursor(0, 1);
     if (hourtimer1 < 10) {
       lcd.print("0");
@@ -268,7 +275,11 @@ void loop() {
   }
 
   if (menuLocation == 4) { //header for option for feeding time #2, for the changing interface, goto menuLocation==19
-    lcd.print("Feeding Time 2");
+    lcd.print("Feed 2");
+    uint8_t scoopDigits = scoopsPerFeed2 < 10 ? 1 : (scoopsPerFeed2 < 100 ? 2 : 3);
+    lcd.setCursor(16 - 1 - scoopDigits, 0);
+    lcd.print("x");
+    lcd.print(scoopsPerFeed2);
     lcd.setCursor(0, 1);
     if (hourtimer2 < 10) {
       lcd.print("0");
@@ -297,7 +308,11 @@ void loop() {
   }
 
   if (menuLocation == 5) { //header for option for feeding time #3, for the changing interface, goto menuLocation==20
-    lcd.print("Feeding Time 3");
+    lcd.print("Feed 3");
+    uint8_t scoopDigits = scoopsPerFeed3 < 10 ? 1 : (scoopsPerFeed3 < 100 ? 2 : 3);
+    lcd.setCursor(16 - 1 - scoopDigits, 0);
+    lcd.print("x");
+    lcd.print(scoopPerFeed3);
     lcd.setCursor(0, 1);
     if (hourtimer3 < 10) {
       lcd.print("0");
@@ -585,21 +600,21 @@ void loop() {
 
   if (menuLocation == 17) {
     lcd.setCursor(0, 0);
-    lcd.print("Change #/Scoops");
+    lcd.print("Set Skip Cycles");
     lcd.setCursor(0, 1);
     if (flashBool()) {
-      lcd.print(setScoopsPerFeed);
+      lcd.print(setCyclesToSkip);
     } else {
       lcd.print("                 ");
     }
-    if (readRising(&currentLeft, &lastLeft) && (setScoopsPerFeed > 1)){
-      setScoopsPerFeed--;
+    if (readRising(&currentLeft, &lastLeft) && (setScoopsPerFeed > 0)){
+      setCyclesToSkip--;
       wake();
       smallBeep(beepNote);
     }
     
     if (readRising(&currentRight, &lastRight) && (setScoopsPerFeed < 255)){
-      setScoopsPerFeed++;
+      setCyclesToSkip++;
       wake();
       smallBeep(beepNote);
     }
@@ -609,7 +624,7 @@ void loop() {
       subMenuLocation = 1;
       wake();
       smallBeep(beepNote);
-      scoopsPerFeed = setScoopsPerFeed; //save new scoop number
+      cyclesToSkip = setCyclesToSkip; //save new number
       resetLCD();
     }
 
@@ -618,7 +633,7 @@ void loop() {
       subMenuLocation = 1;
       wake();
       smallBeep(badBeepNote); //not saved so bad
-      //notice absence of transfer from setscoopsperfeed to scoopsperfeed, to not save new scoop number
+      //notice absence of transfer, to not save new cycle number
       resetLCD();
     }
   }
@@ -738,11 +753,50 @@ void loop() {
         resetLCD();
         wake();
         smallBeep(beepNote);
-        menuLocation = 1;
-        subMenuLocation = 1;
+        subMenuLocation++;
+        return;
       }
     }
 
+    if (subMenuLocation == 4){
+      lcd.setCursor(0, 0);
+      lcd.print("Change #/Scoops");
+      lcd.setCursor(0, 1);
+      if (flashBool()) {
+        lcd.print(scoopsPerFeed1);
+      } else {
+        lcd.print("                 ");
+      }
+      if (readRising(&currentLeft, &lastLeft) && (scoopsPerFeed1 > 1)){
+        scoopsPerFeed1--;
+        wake();
+        smallBeep(beepNote);
+      }
+    
+      if (readRising(&currentRight, &lastRight) && (scoopsPerFeed1 < 255)){
+        scoopsPerFeed1++;
+        wake();
+        smallBeep(beepNote);
+      }
+
+      if (readRising(&currentSelect, &lastSelect)){
+        menuLocation = 1;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(beepNote);
+        resetLCD();
+      }
+
+      if (readRising(&currentBack, &lastBack)){
+        menuLocation = 1;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(badBeepNote); //not saved so bad
+        //notice absence of transfer from setscoopsperfeed to scoopsperfeed, to not save new scoop number
+        resetLCD();  
+      }
+    }
+    
     delay(CLEARWRITESPEED);
   }
 
@@ -860,11 +914,50 @@ void loop() {
         resetLCD();
         wake();
         smallBeep(beepNote);
-        menuLocation = 1;
-        subMenuLocation = 1;
+        subMenuLocation++;
+        return;
       }
     }
 
+    if (subMenuLocation == 4){
+      lcd.setCursor(0, 0);
+      lcd.print("Change #/Scoops");
+      lcd.setCursor(0, 1);
+      if (flashBool()) {
+        lcd.print(scoopsPerFeed2);
+      } else {
+        lcd.print("                 ");
+      }
+      if (readRising(&currentLeft, &lastLeft) && (scoopsPerFeed2 > 1)){
+        scoopsPerFeed2--;
+        wake();
+        smallBeep(beepNote);
+      }
+    
+      if (readRising(&currentRight, &lastRight) && (scoopsPerFeed2 < 255)){
+        scoopsPerFeed2++;
+        wake();
+        smallBeep(beepNote);
+      }
+
+      if (readRising(&currentSelect, &lastSelect)){
+        menuLocation = 2;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(beepNote);
+        resetLCD();
+      }
+
+      if (readRising(&currentBack, &lastBack)){
+        menuLocation = 2;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(badBeepNote); //not saved so bad
+        //notice absence of transfer from setscoopsperfeed to scoopsperfeed, to not save new scoop number
+        resetLCD();  
+      }
+    }
+    
     delay(CLEARWRITESPEED);
   }
 
@@ -982,11 +1075,49 @@ void loop() {
         resetLCD();
         wake();
         smallBeep(beepNote);
-        menuLocation = 1;
-        subMenuLocation = 1;
+        subMenuLocation++;
+        return;
       }
     }
+    if (subMenuLocation == 4){
+      lcd.setCursor(0, 0);
+      lcd.print("Change #/Scoops");
+      lcd.setCursor(0, 1);
+      if (flashBool()) {
+        lcd.print(scoopsPerFeed3);
+      } else {
+        lcd.print("                 ");
+      }
+      if (readRising(&currentLeft, &lastLeft) && (scoopsPerFeed3 > 1)){
+        scoopsPerFeed3--;
+        wake();
+        smallBeep(beepNote);
+      }
+    
+      if (readRising(&currentRight, &lastRight) && (scoopsPerFeed3 < 255)){
+        scoopsPerFeed3++;
+        wake();
+        smallBeep(beepNote);
+      }
 
+      if (readRising(&currentSelect, &lastSelect)){
+        menuLocation = 3;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(beepNote);
+        resetLCD();
+      }
+
+      if (readRising(&currentBack, &lastBack)){
+        menuLocation = 3;
+        subMenuLocation = 1;
+        wake();
+        smallBeep(badBeepNote); //not saved so bad
+        //notice absence of transfer from setscoopsperfeed to scoopsperfeed, to not save new scoop number
+        resetLCD();  
+      }
+    }
+    
     delay(CLEARWRITESPEED);
   }
 
@@ -1342,9 +1473,29 @@ void loop() {
 
   //autofeed timer
   if ((!coolDown) && (((millis() - lastTimerFeed) % UNSIGNEDLONGINTARDUINO) > (TIMERCOOLDOWNMS))){coolDown = 1;}
-  if ((((hourtimer1 == hour) && (minutetimer1 == minute) && (timer1)) || ((hourtimer2 == hour) && (minutetimer2 == minute) && (timer2)) || ((hourtimer3 == hour) && (minutetimer3 == minute) && (timer3))) && (coolDown)){
-    if (feedTimerOn == 1){feed();}
-    if (feedTimerOn == 2){ring();}
+  bool isTimer1 = (hourtimer1 == hour) && (minutetimer1 == minute) && (timer1);
+  bool isTimer2 = (hourtimer2 == hour) && (minutetimer2 == minute) && (timer2);
+  bool isTimer3 = (hourtimer3 == hour) && (minutetimer3 == minute) && (timer3);
+  uint8_t scoops = isTimer1 ? scoopsPerFeed1 : (isTimer2 ? scoopsPerFeed2 : (isTimer3 ? scoopsPerFeed3 : 0)));
+  if (
+      (
+       (isTimer1) ||
+       (isTimer2) ||
+       (isTimer3)
+      ) 
+      && 
+      (coolDown)
+     ){
+    if (!cyclesToSkip) {
+      if (feedTimerOn == 1){
+        feed(scoops);
+      }
+      if (feedTimerOn == 2){
+        ring();
+      }
+    } else {
+      cyclesToSkip--;
+    }
     //use ifelse loop etc here with feed and ring later to change each alarm/feedtime: maybe??
     coolDown = 0;
     lastTimerFeed = millis();
@@ -1418,12 +1569,12 @@ bool flashBool() {
   return (millis() % 1000 > 250);
 }
 
-void feed() {
+void feed(uint8_t scoops) {
   servoPower(HIGH);
   ring();
   lcd.setCursor(0,0);
   lcd.print("Feeding!        ");
-  for (uint8_t times = 0; times < scoopsPerFeed; times++){
+  for (uint8_t times = 0; times < scoops; times++){
     lcd.setCursor(0, 1);
     lcd.print("Scoop: ");
     lcd.print(times+1);
