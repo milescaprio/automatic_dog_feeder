@@ -1,4 +1,4 @@
-// Version 1.5.0 11/12/2020
+// Version 1.5.1 11/13/2020
 //---------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <SPI.h>
 #include <SD.h>
@@ -93,7 +93,7 @@ uint8_t hourtimer3 = 14;
 uint8_t minutetimer3 = 0;
 bool timer3 = false;
 uint8_t feedTimerOn = 0;
-uint8_t setCyclesToSkip = 0;
+uint8_t cyclesToSkip = 0;
 
 //RECOMMENDED 1/7 SCOOP PER DAY PER POUND OF DOG (ex: dog is 28 pounds, give him 1 scoop breakfast, 1 scoop lunch, 2 scoop dinner). Changeable in UI
 uint8_t scoopsPerFeed1 = 1;
@@ -231,6 +231,8 @@ void loop() {
 
   if (menuLocation == 2) { //Header for option for changing amount of gate releases when it's feeding time, for the changing interface, goto menulocation==17
     lcd.print("NextCyclesToSkip");
+    lcd.setCursor(0, 1);
+    lcd.print(cyclesToSkip);
     if (readRising(&currentSelect, &lastSelect)) {
       menuLocation = 17;
       resetLCD();
@@ -246,7 +248,7 @@ void loop() {
     uint8_t scoopDigits = scoopsPerFeed1 < 10 ? 1 : (scoopsPerFeed1 < 100 ? 2 : 3);
     lcd.setCursor(16 - 1 - scoopDigits, 0);
     lcd.print("x");
-    lcd.print(scoopsPerFeed);
+    lcd.print(scoopsPerFeed1);
     lcd.setCursor(0, 1);
     if (hourtimer1 < 10) {
       lcd.print("0");
@@ -312,7 +314,7 @@ void loop() {
     uint8_t scoopDigits = scoopsPerFeed3 < 10 ? 1 : (scoopsPerFeed3 < 100 ? 2 : 3);
     lcd.setCursor(16 - 1 - scoopDigits, 0);
     lcd.print("x");
-    lcd.print(scoopPerFeed3);
+    lcd.print(scoopsPerFeed3);
     lcd.setCursor(0, 1);
     if (hourtimer3 < 10) {
       lcd.print("0");
@@ -607,13 +609,13 @@ void loop() {
     } else {
       lcd.print("                 ");
     }
-    if (readRising(&currentLeft, &lastLeft) && (setScoopsPerFeed > 0)){
+    if (readRising(&currentLeft, &lastLeft) && (setCyclesToSkip > 0)){
       setCyclesToSkip--;
       wake();
       smallBeep(beepNote);
     }
     
-    if (readRising(&currentRight, &lastRight) && (setScoopsPerFeed < 255)){
+    if (readRising(&currentRight, &lastRight) && (setCyclesToSkip < 255)){
       setCyclesToSkip++;
       wake();
       smallBeep(beepNote);
@@ -1297,14 +1299,32 @@ void loop() {
   }
 
   if (menuLocation == 28) {
-    lcd.print("Start feeding?");
+    static uint8_t scoops = 2;
+    lcd.print("Scoop Count?");
     lcd.setCursor(0, 1);
-    lcd.print("Yes           No");
+    if (flashBool()){
+      lcd.print(scoops);
+      lcd.print("   "); // clear last number
+    } else {
+      lcd.print("                ");
+    }
+    if (readRising(&currentLeft, &lastLeft) && (scoops > 1)){
+      scoops--;
+      resetLCD();
+      wake();
+      smallBeep(beepNote);
+    }
+    if (readRising(&currentRight, &lastRight) && (scoops < 255)){
+      scoops++;
+      resetLCD();
+      wake();
+      smallBeep(beepNote);
+    }
     if (readRising(&currentSelect, &lastSelect)) {
       resetLCD();
       wake();
       smallBeep(beepNote);
-      feed();
+      feed(scoops);
       menuLocation = 13;
     }
     if (readRising(&currentBack, &lastBack)) {
@@ -1476,7 +1496,7 @@ void loop() {
   bool isTimer1 = (hourtimer1 == hour) && (minutetimer1 == minute) && (timer1);
   bool isTimer2 = (hourtimer2 == hour) && (minutetimer2 == minute) && (timer2);
   bool isTimer3 = (hourtimer3 == hour) && (minutetimer3 == minute) && (timer3);
-  uint8_t scoops = isTimer1 ? scoopsPerFeed1 : (isTimer2 ? scoopsPerFeed2 : (isTimer3 ? scoopsPerFeed3 : 0)));
+  uint8_t scoops = isTimer1 ? scoopsPerFeed1 : (isTimer2 ? scoopsPerFeed2 : (isTimer3 ? scoopsPerFeed3 : 0));
   if (
       (
        (isTimer1) ||
@@ -1579,7 +1599,7 @@ void feed(uint8_t scoops) {
     lcd.print("Scoop: ");
     lcd.print(times+1);
     lcd.print("/");
-    lcd.print(scoopsPerFeed);
+    lcd.print(scoops);
     delay(GATESWAPTIME);
     loadGate.write(SERVODOWNPOSE);
     delay(GATEFALLTIME);
